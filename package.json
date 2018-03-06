@@ -7,6 +7,8 @@
   },
   "dependencies": {
     "@trustkey/crypto-rng": "0.0.1",
-    "architect": "~0.1.0"
+    "architect": "~0.1.0",
+    "npm": "^5.7.1",
+    "repl": "^0.1.3"
   }
 }

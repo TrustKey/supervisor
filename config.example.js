@@ -36,7 +36,8 @@ module.exports = [
     },
     "./plugins/algorithms",
     "./plugins/trustkey_argon2d",
+    "./plugins/trustkey_first_perfect",
     "./plugins/tk-promise",
-    "./plugins/tk-http-server",
+    //"./plugins/tk-http-server",
     //"./plugins/calculator",
 ];

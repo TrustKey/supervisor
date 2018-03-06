@@ -32,6 +32,11 @@ module.exports = function setup(options, imports, register) {
         });
 
         options.servers.forEach((server) => {
+            c.waitCallback((resolve, reject) =>
+                app.db.collection(server.server_id + "_trustkeys").ensureIndex({"ts": 1}, {"unique": true},
+                    (err, res) => err ? reject(err) : resolve())
+            );
+
             supervisors.push(new TKServerSupervisor(app, server));
         });
 
@@ -51,43 +56,3 @@ module.exports = function setup(options, imports, register) {
         core: new CoreServiceInterface(app)
     });
 };
-
-/*
-while(true) {
-    var bytes = crypto.randomBytes(config.nBytes);
-    var hex = Buffer.from(bytes).toString('hex');
-    var hash = crypto.createHash('sha512').update(bytes).digest('hex');
-    var digest = hash
-
-    var lastChar = digest[0];
-
-    for (var i = 0; i < digest.length; i++) {
-        ++stat[digest.charAt(i)];
-    }
-
-    console.log(lastChar);
-}
-
-request({
-    url: config.endpoint + '/current/hashes',
-    method: "POST",
-    json: {sha512hash: digest}
-}, function (err, resp, body) {
-    if(err)
-        return console.error(err);
-
-    setTimeout(function () {
-        request({
-            url: config.endpoint + '/current/inputs',
-            method: "POST",
-            body: bytes
-        }, function (err, resp, body) {
-            if(err)
-                return console.error(err);
-
-            console.log(body);
-        });
-    }, 15*1000)
-
-    console.log(body);
-});*/

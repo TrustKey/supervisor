@@ -2,6 +2,7 @@ const WebSocketClient = require('websocket').client;
 const EventEmitter = require('events').EventEmitter;
 const crypto = require('crypto');
 const CoreServiceSupervisorInterface = require('./CoreServiceSupervisorInterface');
+const HashInputSet = require('./HashInputSet');
 
 module.exports = class TKServerSupervisor {
     constructor(app, config) {
@@ -12,17 +13,13 @@ module.exports = class TKServerSupervisor {
 
         this.interface = new CoreServiceSupervisorInterface(this);
         this.config = config;
-        this.currentTKHashList = [];
-        this.nextTKHashList = [];
+        this.currentHashInputSet = new HashInputSet();
+        this.nextHashInputSet = new HashInputSet();
         this.currentDigest = null;
-        this.hasHashListMiss = false;
         this.currentSupervisorInput = null;
         this.nextSupervisorInput = null;
-        this.isSupervisorInputReceived = false;
         this.connection = null;
         this.serverInfo = null;
-        this.receivedInputList = [];
-        this.checkedInputs = null;
         this.currentTrustKeyTs = -1;
 
         this.currentRound = 0; //Round id after connect
@@ -37,13 +34,10 @@ module.exports = class TKServerSupervisor {
 
         this.events.on('round_sync', (data) => {
             this.currentTrustKeyTs = data.current_trustkey_ts;
-            this.checkedInputs = new Buffer(0);
-            this.hasHashListMiss = false;
-            this.currentTKHashList = this.nextTKHashList;
-            this.nextTKHashList = [];
-            this.receivedInputList = [];
 
-            this.isSupervisorInputReceived = false;
+            this.currentHashInputSet = this.nextHashInputSet;
+            this.nextHashInputSet = new HashInputSet();
+
             this.currentSupervisorInput = this.nextSupervisorInput;
             this.nextSupervisorInput =
                 app.rng.generate(this.serverInfo.config.input_length);
@@ -69,61 +63,29 @@ module.exports = class TKServerSupervisor {
 
         this.events.on('input', (data) => {
             const inputBytes = new Buffer(data.input_base64, 'base64');
-
-            if(this.currentSupervisorInput && inputBytes.equals(this.currentSupervisorInput))
-                this.isSupervisorInputReceived = true;
-
-            const inputHash = crypto.createHash('sha512').update(inputBytes).digest('hex').toUpperCase();
-
-            const findRes = this.currentTKHashList.filter((hashHex) => {
-                return inputHash === hashHex;
-            })[0];
-
-            this.receivedInputList.push(data.input_base64);
-
-            if(findRes) {
-                this.currentDigest.update(inputBytes);
-
-                if(!this.checkedInputs)
-                    this.checkedInputs = inputBytes;
-                else
-                    this.checkedInputs = Buffer.concat([this.checkedInputs, inputBytes]);
-            }
-            else
-                this.hasHashListMiss = true;
-
-            //console.log({input_hash: inputHash, b64: data.input_base64})
+            this.currentHashInputSet.tryPostInput(inputBytes);
         });
 
         this.events.on('hash', (data) => {
-            this.nextTKHashList.push(data.hash);
+            this.nextHashInputSet.tryPostHash(data.hash);
         });
 
         this.events.on('trust_key', (data) => {
             ++this.currentRound;
 
             if(this.currentRound <= trustedRound)
-                return; //We need to wait for two full rounds before be able to draw conclusions
+                return; //We need to observe two more full rounds to be able to draw conclusions
 
-            const observedTrustKey = this.currentDigest.digest('hex').toUpperCase();
+            const hashInputSetSummary = this.currentHashInputSet.analyze(this.currentSupervisorInput, data.sha512_hex);
 
-            const summary = {
-                ts: this.currentTrustKeyTs,
-                is_trusted: this.isSupervisorInputReceived &&
-                (data.sha_512_hex === observedTrustKey) &&
-                !this.hasHashListMiss,
-                is_supervisor_input_received: this.isSupervisorInputReceived,
-                has_hash_list_miss: this.hasHashListMiss,
-                server_trustkey: data.sha_512_hex,
-                observed_trustkey: observedTrustKey,
-                hashes: this.currentTKHashList,
-                received_input_list: this.receivedInputList,
-                checked_inputs: this.checkedInputs
-            };
+            let summary = hashInputSetSummary;
+            summary.ts = this.currentTrustKeyTs;
+            //Todo server's command order analysis
 
             this.trustkeysCollection.insertOne(summary, function (err, res) {
+                if(err)
+                    throw err;
             });
-            //console.error(summary);
         });
 
         const connect = () => {
@@ -138,7 +100,7 @@ module.exports = class TKServerSupervisor {
                     connect();
                 }, this.appConfig.reconnect_timeout);
 
-            //console.log('Connect Error: ' + error.toString());
+            console.log('Connect Error: ' + error.toString());
         });
 
         this.client.on('connect', (connection) => {

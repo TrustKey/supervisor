@@ -1,8 +1,14 @@
-var path = require('path');
-var architect = require("architect");
+"use strict";
+const crypto = require('crypto');
 
-var configPath = path.join(__dirname, "config.js");
-var config = architect.loadConfig(configPath);
+const path = require('path');
+const architect = require("architect");
+
+const configPath = path.join(__dirname, "config.js");
+const config = architect.loadConfig(configPath);
+
+const repl = require('repl').start();
+let replContext = repl.context;
 
 architect.createApp(config, function (err, app) {
     if(err) {
@@ -11,6 +17,8 @@ architect.createApp(config, function (err, app) {
     }
 
     global.services = app.services;
+    replContext.__proto__ = services;
+    replContext.services = services;
 
     if(!app.services.core)
         return console.error("No core module service");
