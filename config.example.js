@@ -10,14 +10,6 @@ module.exports = [
                 priority: 5,
                 supervise_constantly: true
             }
-            /*,{
-                server_id: "D000000000000001",
-                websocket_endpoint: 'ws://159.65.26.3:4002',
-                tag: 'remote',
-                priority: 1000,
-                supervise_constantly: true
-            }
-            /**/
         ],
         reconnect_timeout: 1 * 1000,
         console: {
@@ -33,11 +25,5 @@ module.exports = [
             },
             database: "trustkey"
         }
-    },
-    "./plugins/algorithms",
-    "./plugins/trustkey_argon2d",
-    "./plugins/trustkey_first_perfect",
-    "./plugins/tk-promise",
-    //"./plugins/tk-http-server",
-    //"./plugins/calculator",
+    }
 ];
