@@ -8,6 +8,8 @@
   "dependencies": {
     "@trustkey/crypto-rng": "0.0.1",
     "architect": "~0.1.0",
+    "asyncawait": "^1.0.6",
+    "mongodb": "^3.0.4",
     "npm": "^5.7.1",
     "repl": "^0.1.3",
     "websocket": "^1.0.25"
